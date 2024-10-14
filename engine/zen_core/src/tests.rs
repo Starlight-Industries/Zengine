@@ -13,13 +13,12 @@ fn override_classes() {
         parent: Some(String::from("Zobject"))
     };
 
-    db.register_class(new_class.clone());
+    let _ = db.register_class(new_class.clone());
 
     match db.override_class(new_class, "OldClass") {
         Ok(_) => println!("Class successfully overridden."),
         Err(err) => panic!("Error: {:?}", err),
     }
-    db.classes.clear();
 }
 #[test]
 fn add_class_abstraction() {
@@ -36,7 +35,6 @@ fn add_class_abstraction() {
         Ok(_) => println!("Class 'MyClass' added successfully."),
         Err(err) => panic!("Error adding class: {:?}", err),
     }
-    db.classes.clear();
 }
 
 #[test]
@@ -48,16 +46,13 @@ pub fn inheritance_test() {
     let properties = HashMap::new();
     let methods = HashMap::new();
     
-    match db.add_class("MyClass", properties.clone(), methods.clone(), None) {
+    match db.add_class("ClassToInherit", properties.clone(), methods.clone(), Some(String::from("Zobject"))) {
         Ok(_) => println!("Class 'MyClass' added successfully."),
-        Err(err) => panic!("Error adding class: {:?}", err),
+        Err(err) => panic!("Error adding class: {:?}. Current class stack: {:#?}", err,db.classes),
     }
     
-    match db.add_class("MyInheritiedClass", properties, methods, Some(String::from("MyClass"))) {
+    match db.add_class("MyInheritiedClass", properties, methods, Some(String::from("ClassToInherit"))) {
         Ok(_) => println!("Class 'OtherClass' added successfully,{:#?}",db.get_class("MyInheritiedClass")),
         Err(err) => panic!("Error adding class: {:?}", err),
     }
-
-    
-
 }

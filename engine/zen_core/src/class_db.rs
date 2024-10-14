@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,Default)]
 pub struct ClassInfo {
+    
     pub name: String,
     pub properties: HashMap<String, ValueType>,
     pub parent: Option<String>,
@@ -13,12 +14,14 @@ pub enum Error {
     ClassAlreadyExists(Box<str>),
     ParentClassNotFound(Box<str>),
     PropertyAlreadyDefined(Box<str>),
-    MethodAlreadyDefined(Box<str>)
+    MethodAlreadyDefined(Box<str>),
+    InvalidRootClass(Box<str>)
 }
 #[derive(Debug, Clone)]
 pub enum ValueType {
     Int(i32),
-    Float(f64),
+    Float(f32),
+    Double(f64),
     String(String),
     Bool(bool),
     Vector2(f32,f32),
@@ -51,6 +54,9 @@ impl ClassDB {
         methods: HashMap<String, fn(&mut ClassInfo)>,
         parent: Option<String>,
     ) -> Result<(), Error> {
+        if parent.is_none() && class_name != "Zobject" {
+            return Err(Error::InvalidRootClass(class_name.into())); 
+        } // There can only be one free standing class in play at a time, that being Zobject (base class)
         if self.classes.contains_key(class_name) {
             return Err(Error::ClassAlreadyExists(class_name.into()));
         }
@@ -59,7 +65,7 @@ impl ClassDB {
             if !self.classes.contains_key(parent_name) {
                     return Err(Error::ParentClassNotFound(parent_name.as_str().into()));
             }
-    
+
             if let Some(parent_class) = self.classes.get(parent_name) {
                 for property in properties.keys() {
                     if parent_class.properties.contains_key(property) {
@@ -118,10 +124,15 @@ pub fn get_class_db() -> &'static Mutex<ClassDB> {
         let db = Mutex::new(ClassDB {
             classes: HashMap::new(),
         });
+        let z_object = ClassInfo {
+            name: String::from("Zobject"),
+            ..Default::default()
+        };
 
-        let base_properties = HashMap::new();
-        let base_methods = HashMap::new();
-        let _ = db.lock().unwrap().add_class("Zobject", base_properties, base_methods, None);
+        //let base_properties = HashMap::new();
+        //let base_methods = HashMap::new();
+        //let _ = db.lock().unwrap().add_class("Zobject", base_properties, base_methods, None);
+        let _ = db.lock().unwrap().register_class(z_object);
         db
     })
 }
