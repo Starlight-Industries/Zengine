@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
-#[derive(Debug, Clone,Default)]
+use std::default;
+use std::sync::{Arc, Mutex, OnceLock};
+#[derive(Debug, Clone, Default)]
 pub struct ClassInfo {
-    
     pub name: String,
     pub properties: HashMap<String, ValueType>,
     pub parent: Option<String>,
@@ -15,7 +15,7 @@ pub enum Error {
     ParentClassNotFound(Box<str>),
     PropertyAlreadyDefined(Box<str>),
     MethodAlreadyDefined(Box<str>),
-    InvalidRootClass(Box<str>)
+    InvalidRootClass(Box<str>),
 }
 #[derive(Debug, Clone)]
 pub enum ValueType {
@@ -24,10 +24,10 @@ pub enum ValueType {
     Double(f64),
     String(String),
     Bool(bool),
-    Vector2(f32,f32),
-    Vector3(f32,f32,f32)
+    Vector2(f32, f32),
+    Vector3(f32, f32, f32),
 }
-#[derive(Debug, Clone,Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ClassDB {
     pub classes: HashMap<String, ClassInfo>,
 }
@@ -55,7 +55,7 @@ impl ClassDB {
         parent: Option<String>,
     ) -> Result<(), Error> {
         if parent.is_none() && class_name != "Zobject" {
-            return Err(Error::InvalidRootClass(class_name.into())); 
+            return Err(Error::InvalidRootClass(class_name.into()));
         } // There can only be one free standing class in play at a time, that being Zobject (base class)
         if self.classes.contains_key(class_name) {
             return Err(Error::ClassAlreadyExists(class_name.into()));
@@ -63,7 +63,7 @@ impl ClassDB {
 
         if let Some(ref parent_name) = parent {
             if !self.classes.contains_key(parent_name) {
-                    return Err(Error::ParentClassNotFound(parent_name.as_str().into()));
+                return Err(Error::ParentClassNotFound(parent_name.as_str().into()));
             }
 
             if let Some(parent_class) = self.classes.get(parent_name) {
@@ -81,33 +81,32 @@ impl ClassDB {
 
                 let mut inherited_methods = parent_class.methods.clone();
 
-                inherited_properties.extend(properties); 
+                inherited_properties.extend(properties);
                 inherited_methods.extend(methods);
 
                 let class_info = ClassInfo {
                     name: class_name.to_string(),
                     properties: inherited_properties,
                     methods: inherited_methods,
-                    parent
+                    parent,
                 };
                 self.classes.insert(class_name.to_string(), class_info);
-                return Ok(())
+                return Ok(());
+            } else {
+                return Err(Error::ParentClassNotFound(parent_name.as_str().into()));
+            }
         } else {
-            return Err(Error::ParentClassNotFound(parent_name.as_str().into()));
-        } 
-        } else {
-        let class_info = ClassInfo {
-            name: class_name.to_string(),
-            properties,
-            methods,
-            parent: None,
-        };
+            let class_info = ClassInfo {
+                name: class_name.to_string(),
+                properties,
+                methods,
+                parent: None,
+            };
 
-        self.classes.insert(class_name.to_string(), class_info);
-        Ok(())
+            self.classes.insert(class_name.to_string(), class_info);
+            Ok(())
+        }
     }
-
-}
     pub fn override_class(&mut self, new_class: ClassInfo, old_class: &str) -> Result<(), Error> {
         if let Some(class) = self.classes.get_mut(old_class) {
             *class = new_class;
@@ -136,3 +135,4 @@ pub fn get_class_db() -> &'static Mutex<ClassDB> {
         db
     })
 }
+

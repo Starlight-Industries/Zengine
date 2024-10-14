@@ -1,16 +1,21 @@
 #[cfg(test)]
+use serial_test::serial; // ensre that tests are run in sequential order
 #[test]
+#[serial]
 fn override_classes() {
-    use std::collections::HashMap;
     use crate::class_db::*;
+    use std::collections::HashMap;
     println!("Running Override class test");
     let mut db = get_class_db().lock().unwrap();
-    println!("Test: Override, current classes in ClassDB: {:#?}", db.classes);
+    println!(
+        "Test: Override, current classes in ClassDB: {:#?}",
+        db.classes
+    );
     let new_class = ClassInfo {
         name: String::from("OldClass"),
         properties: HashMap::new(),
         methods: HashMap::new(),
-        parent: Some(String::from("Zobject"))
+        parent: Some(String::from("Zobject")),
     };
 
     let _ = db.register_class(new_class.clone());
@@ -21,6 +26,7 @@ fn override_classes() {
     }
 }
 #[test]
+#[serial]
 fn add_class_abstraction() {
     use crate::class_db::*;
     use std::collections::HashMap;
@@ -31,28 +37,71 @@ fn add_class_abstraction() {
     let parent = String::from("Zobject");
 
     // Add a class ergonomically
-    match db.add_class("MyClass", properties, methods,Some(parent)) {
+    match db.add_class("MyClass", properties, methods, Some(parent)) {
         Ok(_) => println!("Class 'MyClass' added successfully."),
         Err(err) => panic!("Error adding class: {:?}", err),
     }
 }
 
 #[test]
+#[serial]
 pub fn inheritance_test() {
+    // Test determines if a class can inherit properties from another
     use crate::class_db::*;
     use std::collections::HashMap;
     println!("Running Inheritance test");
     let mut db = get_class_db().lock().unwrap();
     let properties = HashMap::new();
     let methods = HashMap::new();
-    
-    match db.add_class("ClassToInherit", properties.clone(), methods.clone(), Some(String::from("Zobject"))) {
+
+    match db.add_class(
+        "ClassToInherit",
+        properties.clone(),
+        methods.clone(),
+        Some(String::from("Zobject")),
+    ) {
         Ok(_) => println!("Class 'MyClass' added successfully."),
-        Err(err) => panic!("Error adding class: {:?}. Current class stack: {:#?}", err,db.classes),
+        Err(err) => panic!(
+            "Error adding class: {:?}. Current class stack: {:#?}",
+            err, db.classes
+        ),
     }
-    
-    match db.add_class("MyInheritiedClass", properties, methods, Some(String::from("ClassToInherit"))) {
-        Ok(_) => println!("Class 'OtherClass' added successfully,{:#?}",db.get_class("MyInheritiedClass")),
+
+    match db.add_class(
+        "MyInheritiedClass",
+        properties,
+        methods,
+        Some(String::from("ClassToInherit")),
+    ) {
+        Ok(_) => println!(
+            "Class 'OtherClass' added successfully,{:#?}",
+            db.get_class("MyInheritiedClass")
+        ),
         Err(err) => panic!("Error adding class: {:?}", err),
     }
+}
+#[test]
+#[serial]
+pub fn add_child() {
+    use crate::class_db::*;
+    use std::collections::HashMap;
+    println!("Running Inheritance test");
+    let mut db = get_class_db().lock().unwrap();
+    let properties = HashMap::new();
+    let methods = HashMap::new();
+
+    match db.add_class(
+        "NewClass",
+        properties.clone(),
+        methods.clone(),
+        Some(String::from("Zobject")),
+    ) {
+        Ok(_) => println!("Class 'NewClass' added successfully."),
+        Err(err) => panic!(
+            "Error adding class: {:?}. Current Scene tree: {:#?}",
+            err, db.classes
+        ),
+    }
+
+
 }

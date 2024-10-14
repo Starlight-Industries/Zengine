@@ -5,3 +5,7 @@ resolver = "2"
 package.license = "MIT"
 package.description = "A (future) multi platform 3D game engine written in 🦀Rust and ⚡Zig"
 default-members = ["engine/zen_core"]
+
+
+[workspace.dependencies]
+serial_test = "3.1.1"
