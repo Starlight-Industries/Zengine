@@ -1,0 +1,7 @@
+
+[workspace]
+members = ["engine/zen_core", "engine/zenyth"]
+resolver = "2"
+package.license = "MIT"
+package.description = "A (future) multi platform 3D game engine written in 🦀Rust and ⚡Zig"
+default-members = ["engine/zen_core"]
