@@ -4,12 +4,16 @@ use std::sync::{Mutex, OnceLock};
 pub struct ClassInfo {
     pub name: String,
     pub properties: HashMap<String, ValueType>,
+    pub parent: Option<String>,
     pub methods: HashMap<String, fn(&mut Self)>,
 }
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Error {
-    ClassNotFound,
-    ClassAlreadyExists,
+    ClassNotFound(Box<str>),
+    ClassAlreadyExists(Box<str>),
+    ParentClassNotFound(Box<str>),
+    PropertyAlreadyDefined(Box<str>),
+    MethodAlreadyDefined(Box<str>)
 }
 #[derive(Debug, Clone)]
 pub enum ValueType {
@@ -17,20 +21,25 @@ pub enum ValueType {
     Float(f64),
     String(String),
     Bool(bool),
+    Vector2(f32,f32),
+    Vector3(f32,f32,f32)
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,Default)]
 pub struct ClassDB {
     pub classes: HashMap<String, ClassInfo>,
 }
 
 impl ClassDB {
     pub fn new() -> Self {
-        ClassDB {
-            classes: HashMap::new(),
-        }
+        Self::default()
     }
-    pub fn register_class(&mut self, class: ClassInfo) {
-        self.classes.insert(class.name.clone(), class);
+    pub fn register_class(&mut self, class: ClassInfo) -> Result<(), Error> {
+        if self.classes.contains_key(&class.name) {
+            Err(Error::ClassAlreadyExists(class.name.as_str().into()))
+        } else {
+            self.classes.insert(class.name.clone(), class);
+            Ok(())
+        }
     }
     pub fn get_class(&self, class_name: &str) -> Option<&ClassInfo> {
         self.classes.get(class_name)
@@ -40,25 +49,65 @@ impl ClassDB {
         class_name: &str,
         properties: HashMap<String, ValueType>,
         methods: HashMap<String, fn(&mut ClassInfo)>,
+        parent: Option<String>,
     ) -> Result<(), Error> {
         if self.classes.contains_key(class_name) {
-            return Err(Error::ClassAlreadyExists);
+            return Err(Error::ClassAlreadyExists(class_name.into()));
         }
 
+        if let Some(ref parent_name) = parent {
+            if !self.classes.contains_key(parent_name) {
+                    return Err(Error::ParentClassNotFound(parent_name.as_str().into()));
+            }
+    
+            if let Some(parent_class) = self.classes.get(parent_name) {
+                for property in properties.keys() {
+                    if parent_class.properties.contains_key(property) {
+                        return Err(Error::PropertyAlreadyDefined(property.as_str().into()));
+                    }
+                }
+                for method in methods.keys() {
+                    if parent_class.properties.contains_key(method) {
+                        return Err(Error::MethodAlreadyDefined(method.as_str().into()));
+                    }
+                }
+                let mut inherited_properties = parent_class.properties.clone();
+
+                let mut inherited_methods = parent_class.methods.clone();
+
+                inherited_properties.extend(properties); 
+                inherited_methods.extend(methods);
+
+                let class_info = ClassInfo {
+                    name: class_name.to_string(),
+                    properties: inherited_properties,
+                    methods: inherited_methods,
+                    parent
+                };
+                self.classes.insert(class_name.to_string(), class_info);
+                return Ok(())
+        } else {
+            return Err(Error::ParentClassNotFound(parent_name.as_str().into()));
+        } 
+        } else {
         let class_info = ClassInfo {
             name: class_name.to_string(),
             properties,
             methods,
+            parent: None,
         };
+
         self.classes.insert(class_name.to_string(), class_info);
         Ok(())
     }
+
+}
     pub fn override_class(&mut self, new_class: ClassInfo, old_class: &str) -> Result<(), Error> {
         if let Some(class) = self.classes.get_mut(old_class) {
             *class = new_class;
             Ok(())
         } else {
-            Err(Error::ClassNotFound)
+            Err(Error::ClassNotFound(old_class.into()))
         }
     }
 }
@@ -66,8 +115,13 @@ impl ClassDB {
 pub static CLASS_DB: OnceLock<Mutex<ClassDB>> = OnceLock::new();
 pub fn get_class_db() -> &'static Mutex<ClassDB> {
     CLASS_DB.get_or_init(|| {
-        Mutex::new(ClassDB {
+        let db = Mutex::new(ClassDB {
             classes: HashMap::new(),
-        })
+        });
+
+        let base_properties = HashMap::new();
+        let base_methods = HashMap::new();
+        let _ = db.lock().unwrap().add_class("Zobject", base_properties, base_methods, None);
+        db
     })
 }
