@@ -6,9 +6,13 @@ use crate::class_db::{ClassInfo, ValueType};
 
 #[derive(Debug, Clone)]
 pub struct Node {
-    name: String,
+    /// Name of the node within the scene tree
+    name: String, 
+    /// The behavior of the node
     class: ClassInfo,
+    /// An array of the nodes children
     children: Vec<Arc<Mutex<Node>>>,
+    /// A reference to the nodes parent
     parent: Option<Arc<Mutex<Node>>>,
 }
 
@@ -35,4 +39,8 @@ impl Node {
             child.lock().unwrap().update(delta);
         }
     }
+}
+
+pub struct SceneTree {
+    
 }

@@ -1,12 +1,26 @@
 use std::collections::HashMap;
-use std::default;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::string;
+use std::sync::{Mutex, OnceLock};
 #[derive(Debug, Clone, Default)]
 pub struct ClassInfo {
     pub name: String,
     pub properties: HashMap<String, ValueType>,
     pub parent: Option<String>,
     pub methods: HashMap<String, fn(&mut Self)>,
+}
+#[derive(Debug, Clone)]
+pub struct PropertyInfo {
+    pub name: String,
+    pub typ: ValueType,
+    pub default_value: Option<ValueType>
+}
+#[derive(Debug, Clone, Default)]
+pub struct MethodInfo {
+    pub name: String,
+    pub return_type: Option<ValueType>,
+    pub arguments: Vec<(String,ValueType)>,
+
+    // pub implm: usize, // Probably a function pointer??
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
