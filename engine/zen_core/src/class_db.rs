@@ -24,7 +24,7 @@ pub struct ClassInfo {
 #[derive(Debug,PartialEq,Clone)]
 pub struct Method {
     pub name: String,
-    pub parameters: SmallVec<[ValueType;6]>
+    pub parameters: SmallVec<[ValueType;6]>,
 
 }
 #[derive(Debug,PartialEq)]
@@ -32,6 +32,7 @@ pub struct Property {
     pub name: String,
     pub value: ValueType,
 }
+
 #[derive(Debug,PartialEq,Clone)]
 pub enum ValueType {
     Float(f32),
@@ -78,8 +79,9 @@ pub fn get_all() -> Vec<ClassInfo> {
     for class in &CLASS_DB.read().classes {
         vec_to_return.push(class.clone());
     };
+    
     vec_to_return
 }
 pub fn get_root() -> ClassInfo {
-    CLASS_DB.read().classes.first().unwrap().clone()
+    CLASS_DB.read().classes.first().unwrap().to_owned()
 }

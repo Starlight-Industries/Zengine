@@ -5,7 +5,7 @@
 */
 
 use blue_engine::{
-    header::{Engine, ObjectSettings, ShaderSettings}, primitive_shapes::triangle, Backends, Textures, WindowDescriptor
+    header::{Engine, ObjectSettings, ShaderSettings}, primitive_shapes::triangle, Backends, WindowDescriptor
 };
 
 pub fn init_renderer() {

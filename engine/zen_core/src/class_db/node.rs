@@ -1,16 +1,16 @@
 use std::fmt;
-
 use super::ClassInfo;
-#[derive(Debug,PartialEq,Default,Clone)]
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
-    class: ClassInfo,
-    name: String,
-    id: usize,
-    children: Vec<Node>,
+    pub class: ClassInfo,
+    pub name: String,
+    pub id: usize,
+    pub children: Vec<Node>,
 }
 
 impl Node {
-    pub fn new(class: ClassInfo, id: usize,name: &str) -> Self {
+    pub fn new(class: ClassInfo, id: usize, name: &str) -> Self {
         Node {
             class,
             name: name.to_string(),
@@ -18,6 +18,7 @@ impl Node {
             children: Vec::new(),
         }
     }
+
     pub fn print_node(&self, level: usize) {
         let indent = "  ".repeat(level);
         println!("{}Node: {}, Class: {}", indent, self.name, self.class.name);
@@ -25,6 +26,7 @@ impl Node {
             child.print_node(level + 1);
         }
     }
+
     pub fn add_child(&mut self, child: Node) {
         self.children.push(child);
     }
@@ -41,17 +43,15 @@ impl Node {
         if self.id == node_id {
             return Some(self);
         }
-
         for child in &self.children {
             if let Some(found) = child.find_node(node_id) {
                 return Some(found);
             }
         }
-
         None
     }
 }
-#[derive(Debug,PartialEq,Default,Clone)]
+
 pub struct SceneTree {
     root: Node,
 }
@@ -59,6 +59,10 @@ pub struct SceneTree {
 impl SceneTree {
     pub fn new(root: Node) -> Self {
         SceneTree { root }
+    }
+
+    pub fn print_tree(&self) {
+        self.root.print_node(0);
     }
 }
 
@@ -71,12 +75,10 @@ impl fmt::Display for SceneTree {
 impl SceneTree {
     fn fmt_node(&self, node: &Node, level: usize, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let indent = "  ".repeat(level);
-        writeln!(f, "{} Node id: {}", indent, node.id)?;
-
+        writeln!(f, "{}Node: {}, ID: {}", indent, node.name, node.id)?;
         for child in &node.children {
             self.fmt_node(child, level + 1, f)?;
         }
-
         Ok(())
     }
 }
