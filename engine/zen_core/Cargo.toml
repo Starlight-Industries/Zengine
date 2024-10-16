@@ -1,8 +1,13 @@
 [package]
 name = "zen_core"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 
 [dev-dependencies]
 serial_test.workspace = true
 
+[dependencies]
+blue_engine = "0.5.20"
+parking_lot = "0.12.3"
+rayon = "1.10.0"
+smallvec = "1.13.2"
