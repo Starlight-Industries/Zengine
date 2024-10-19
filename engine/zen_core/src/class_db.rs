@@ -18,16 +18,17 @@ pub struct ClassDB {
 pub struct ClassInfo {
     pub name: String,
     pub methods: SmallVec<[Method;32]>, // you can define 32 methods untill they are managed in the heap
+    pub properties: SmallVec<[Property;32]>,
     pub parent: Option<String>,
-    
 }
 #[derive(Debug,PartialEq,Clone)]
 pub struct Method {
     pub name: String,
     pub parameters: SmallVec<[ValueType;6]>,
+    //pub ptr: &'a fn(dyn any) -> ValueType,
 
 }
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone)]
 pub struct Property {
     pub name: String,
     pub value: ValueType,
@@ -51,6 +52,7 @@ static CLASS_DB: LazyLock<RwLock<ClassDB>> = LazyLock::new(||{
         name: "Zobject".to_string(),
         methods: SmallVec::new(),
         parent: None,
+        properties: SmallVec::new()
     });
     RwLock::new(db)
 });
@@ -84,4 +86,18 @@ pub fn get_all() -> Vec<ClassInfo> {
 }
 pub fn get_root() -> ClassInfo {
     CLASS_DB.read().classes.first().unwrap().to_owned()
+}
+
+impl ClassInfo {
+    pub fn new(class_name: &str,parent:&str) -> Self {
+        let new_class = ClassInfo {
+            name: String::from(class_name),
+            parent: Some(String::from(parent)),
+            ..Default::default()
+        };
+        match register_class(&new_class) {
+            Ok(_) => new_class,
+            Err(e) => panic!("Failed to register class '{:#?}': {:#?}",class_name,e),
+        }
+    }
 }
