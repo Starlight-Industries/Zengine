@@ -1,103 +1,122 @@
-use std::sync::LazyLock;
-
-use smallvec::SmallVec;
-
+use std::{fmt, sync::{Arc, LazyLock}};
+use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
-pub mod node;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
+use crate::{class_db, printinfo, printwarn, throw};
 #[derive(Debug)]
-pub enum Error {
-    ClassAlreadyExists(String),
-    CannotOverrideBaseclass(String)
-}
-#[derive(Debug)]
-pub struct ClassDB {
-    pub classes: Vec<ClassInfo>
-}
-#[derive(Debug,PartialEq,Default,Clone)]
-pub struct ClassInfo {
-    pub name: String,
-    pub methods: SmallVec<[Method;32]>, // you can define 32 methods untill they are managed in the heap
-    pub properties: SmallVec<[Property;32]>,
-    pub parent: Option<String>,
-}
-#[derive(Debug,PartialEq,Clone)]
-pub struct Method {
-    pub name: String,
-    pub parameters: SmallVec<[ValueType;6]>,
-    //pub ptr: &'a fn(dyn any) -> ValueType,
-
-}
-#[derive(Debug,PartialEq,Clone)]
-pub struct Property {
-    pub name: String,
-    pub value: ValueType,
+pub struct ClassDB<'a> {
+    classes: HashMap<String,RwLock<Arc<Class<'a>>>>, // dear god help
 }
 
-#[derive(Debug,PartialEq,Clone)]
-pub enum ValueType {
+#[derive(Debug, Clone)]
+pub struct Class<'a> {
+    pub parent: Option<&'a Class<'a>>,
+    pub methods: HashMap<String, fn(&[Value]) -> Value>,
+    pub properties: HashMap<String,Value>
+}
+
+#[derive(Debug, Clone)]
+enum Value {
     Float(f32),
-    String(String),
-    Int(i32),
+    Double(f64),
+    Int(i64),
+    String(Box<str>),
     Bool(bool),
-    Vec2(f32,f32)
+    Void,
 }
 
-
-static CLASS_DB: LazyLock<RwLock<ClassDB>> = LazyLock::new(||{
-    let mut db = ClassDB { classes: Vec::new() };
+impl Class<'static> {
+    pub fn print_data(&self) {
+        print!("dd")
+    }
+    pub fn bind_method(&mut self, method_name: &str, method: fn(Value) -> Value) {
+        printinfo!("Binding method '{}'",method_name)
+    }
+    pub fn add_property(&mut self) {}
+}
+type ZClass<'a> = Class<'a>;
+pub static CLASS_DB: LazyLock<RwLock<ClassDB>> = LazyLock::new(|| {
+    let mut db = ClassDB {
+        classes: HashMap::new()
+    };
 
     // Add the Zobject class upon initialization
-    db.classes.push(ClassInfo {
-        name: "Zobject".to_string(),
-        methods: SmallVec::new(),
+    // db.classes.push(Class {,
+    //     methods: HashMap::new(),
+    //     parent: None,
+    //     properties: vec![],
+    // });
+    db.classes.insert(String::from("Zobject",), RwLock::new(Arc::new(Class {
         parent: None,
-        properties: SmallVec::new()
-    });
+        methods: HashMap::new(),
+        properties: HashMap::new() 
+    })));
     RwLock::new(db)
 });
 
-pub fn rand() {
-    println!("{:#?}",std::time::SystemTime::now())
-}
-
-pub fn register_class(class_info: &ClassInfo) -> Result<(),Error> {
-    for class in &CLASS_DB.read().classes {
-        if class.name == class_info.name {
-            return Err(Error::ClassAlreadyExists(class_info.name.clone()));
+pub fn register_class(class_name: &str, parent: Option<&str>) -> Result<(), Error> {
+    printinfo!("Attempting to register class '{}'", class_name);
+    if class_name == "Zobject" {
+        printwarn!("You cannot override the base class. Try choosing a different name");
+        return throw!(Error::CannotOverrideBaseclass(String::from("Zobject")));
+    }
+    let mut find_parent: bool = false;
+    if parent.is_some() { find_parent = true}
+    for class in CLASS_DB.read().classes.keys() {
+        if class == class_name {
+            printwarn!("A class with the same name was registered previously. Did you mean to override it?");
+            return throw!(Error::ClassAlreadyExists(class_name.to_string()));
         }
     }
-    if class_info.name == "Zobject" {
-        eprintln!("You cannot override the base class. Try choosing a different name");
-        return Err(Error::CannotOverrideBaseclass(class_info.name.clone()));
+    if find_parent {
+        for class in &CLASS_DB.read().classes {
+            if Some(class.0.as_str()) == parent  {
+                printinfo!("thing");
+            }
+        }
     }
-    CLASS_DB.write().classes.push(class_info.to_owned());
-    
+
+    let new_class = Class {
+        parent: None,
+        methods: HashMap::new(),
+        properties: HashMap::new(),
+    };
+    printinfo!("Attempting to unlock classDB for write access");
+    CLASS_DB.write().classes.insert(String::from(class_name),RwLock::new(Arc::new(new_class)));
+    printinfo!("Registered class '{:#?} to ClassDB'", class_name);
     Ok(())
 }
 
-pub fn get_all() -> Vec<ClassInfo> {
-    let mut vec_to_return:  Vec<ClassInfo> = vec![];
-    for class in &CLASS_DB.read().classes {
-        vec_to_return.push(class.clone());
-    };
-    
-    vec_to_return
+pub fn get_class(class_name: &str,) -> Result<Arc<ZClass>, Error>{
+    printinfo!("Attempting to locate class '{}'", class_name);
+    if let Some(found_class) = CLASS_DB.read().classes.get(class_name){
+        printinfo!("Class found");
+        Ok(Arc::clone(&found_class.read()))
+    } else {
+        printwarn!("Class wasnt found. Is it registered?");
+        return throw!(Error::ClassNotFound(class_name.to_string()));
+    }
 }
-pub fn get_root() -> ClassInfo {
-    CLASS_DB.read().classes.first().unwrap().to_owned()
+#[derive(Debug)]
+pub enum Error {
+    ClassAlreadyExists(String),
+    ClassNotFound(String),
+    CannotOverrideBaseclass(String),
 }
-
-impl ClassInfo {
-    pub fn new(class_name: &str,parent:&str) -> Self {
-        let new_class = ClassInfo {
-            name: String::from(class_name),
-            parent: Some(String::from(parent)),
-            ..Default::default()
-        };
-        match register_class(&new_class) {
-            Ok(_) => new_class,
-            Err(e) => panic!("Failed to register class '{:#?}': {:#?}",class_name,e),
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::ClassAlreadyExists(name) => write!(f, "Class already exists: {}", name),
+            Error::CannotOverrideBaseclass(name) => {
+                write!(f, "Cannot override baseclass: {}", name)
+            }
+            Error::ClassNotFound(name) => write!(f,"Cannot find class '{}' within ClassDB",name)
         }
     }
 }
+
+pub fn test() -> Result<Error, Error> {
+    return throw!(Error::CannotOverrideBaseclass(String::from("Zobject")));
+}
+

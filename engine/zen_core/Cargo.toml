@@ -7,8 +7,14 @@ edition = "2021"
 serial_test.workspace = true
 
 [dependencies]
-blue_engine = "0.5.20"
+ahash = "0.8.11"
+chrono = "0.4.38"
+colored = "2.1.0"
 fastrand = "2.1.1"
 parking_lot = "0.12.3"
 rayon = "1.10.0"
 smallvec = "1.13.2"
+
+[profile.dev]
+debug = true
+
