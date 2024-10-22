@@ -1,9 +1,9 @@
-use std::{fmt, sync::{Arc, LazyLock}};
+use core::sync;
+use std::{any::{self, Any}, fmt, sync::{Arc, LazyLock}};
 use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{class_db, printinfo, printwarn, throw};
+use crate::{printinfo, printwarn, throw};
 #[derive(Debug)]
 pub struct ClassDB<'a> {
     classes: HashMap<String,RwLock<Arc<Class<'a>>>>, // dear god help
@@ -11,45 +11,45 @@ pub struct ClassDB<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Class<'a> {
-    pub parent: Option<&'a Class<'a>>,
-    pub methods: HashMap<String, fn(&[Value]) -> Value>,
+    pub parent: Option<&'a Class<'static>>,
+    //pub methods: HashMap<String, fn(&[Value]) -> Value>,
+    pub callbacks: HashMap<String,Callback>,
     pub properties: HashMap<String,Value>
 }
 
+
 #[derive(Debug, Clone)]
-enum Value {
+pub enum Value {
     Float(f32),
     Double(f64),
     Int(i64),
     String(Box<str>),
     Bool(bool),
+    Vector2(f32, f32),
+    Vector3(f32, f32, f32),
     Void,
 }
 
 impl Class<'static> {
     pub fn print_data(&self) {
-        print!("dd")
+        printinfo!("Printing data for thing")
     }
-    pub fn bind_method(&mut self, method_name: &str, method: fn(Value) -> Value) {
-        printinfo!("Binding method '{}'",method_name)
-    }
+    // pub fn bind_method(&mut self, method_name: &str, method: fn(Value) -> Value) {
+    //     printinfo!("Binding method '{}'",method_name)
+    // }
+    pub fn register_callback(&mut self) {}
     pub fn add_property(&mut self) {}
 }
-type ZClass<'a> = Class<'a>;
+
+type ZClass<'a> = Class<'static>;
 pub static CLASS_DB: LazyLock<RwLock<ClassDB>> = LazyLock::new(|| {
     let mut db = ClassDB {
         classes: HashMap::new()
     };
 
-    // Add the Zobject class upon initialization
-    // db.classes.push(Class {,
-    //     methods: HashMap::new(),
-    //     parent: None,
-    //     properties: vec![],
-    // });
     db.classes.insert(String::from("Zobject",), RwLock::new(Arc::new(Class {
         parent: None,
-        methods: HashMap::new(),
+        callbacks: HashMap::new(),
         properties: HashMap::new() 
     })));
     RwLock::new(db)
@@ -76,10 +76,11 @@ pub fn register_class(class_name: &str, parent: Option<&str>) -> Result<(), Erro
             }
         }
     }
+    drop(CLASS_DB.read());
 
     let new_class = Class {
         parent: None,
-        methods: HashMap::new(),
+        callbacks: HashMap::new(),
         properties: HashMap::new(),
     };
     printinfo!("Attempting to unlock classDB for write access");
@@ -88,7 +89,7 @@ pub fn register_class(class_name: &str, parent: Option<&str>) -> Result<(), Erro
     Ok(())
 }
 
-pub fn get_class(class_name: &str,) -> Result<Arc<ZClass>, Error>{
+pub fn get_class(class_name: &str,) -> Result<Arc<Class>, Error> {
     printinfo!("Attempting to locate class '{}'", class_name);
     if let Some(found_class) = CLASS_DB.read().classes.get(class_name){
         printinfo!("Class found");
@@ -97,6 +98,10 @@ pub fn get_class(class_name: &str,) -> Result<Arc<ZClass>, Error>{
         printwarn!("Class wasnt found. Is it registered?");
         return throw!(Error::ClassNotFound(class_name.to_string()));
     }
+}
+pub fn print_debug() {
+    let classes = &CLASS_DB.read().classes;
+    printinfo!("{:#?}", classes)
 }
 #[derive(Debug)]
 pub enum Error {
@@ -119,4 +124,10 @@ impl fmt::Display for Error {
 pub fn test() -> Result<Error, Error> {
     return throw!(Error::CannotOverrideBaseclass(String::from("Zobject")));
 }
+#[derive(Debug, Clone)]
+struct Callback {
+    name: String,
+    event: fn(&(dyn Any + Send + Sync)) -> Option<Box<dyn Any + Send + Sync>>
 
+
+}

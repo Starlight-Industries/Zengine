@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, time::Instant};
 
 use class_db::*;
 
@@ -7,10 +7,14 @@ pub mod config;
 pub mod r#macro;
 
 fn main() {
-    register_class("Node",None);
-    register_class("Node",None);
-    let test = get_class("Zobject").unwrap();
+    match register_class("newclass", Some("Zobject")) {
+        Ok(_) => printinfo!("it work"),
+        Err(_) => printerr!("it didnt"),
+    }
 
+    let mut test = get_class("newclass").unwrap();
+    test.register_callback();
+    print_debug();
 
     
 }
