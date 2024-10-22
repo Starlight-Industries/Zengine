@@ -1,4 +1,3 @@
-use std::{any::Any, ops::Deref, time::Instant};
 
 use class_db::*;
 
@@ -11,7 +10,12 @@ fn main() {
         Ok(_) => printinfo!("it work"),
         Err(_) => printerr!("it didnt"),
     }
-    let new = get_class("newclass").unwrap().write().register_callback("testsdf",todo!());
+    match register_class("newclass2", Some("Zobject")) {
+        Ok(_) => printinfo!("it work"),
+        Err(_) => printerr!("it didnt"),
+    }
+    let new = get_class("newclass").unwrap().write().register_callback("testsdf",);
     
     print_debug();
+    
 }

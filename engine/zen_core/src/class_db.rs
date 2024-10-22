@@ -32,12 +32,12 @@ impl Class {
     pub fn print_data(&self) {
         printinfo!("Printing data for thing")
     }
-    pub fn register_callback(&mut self,callback_name: &str,callback: Callback) -> Result<(), Error> {
+    pub fn register_callback(&mut self,callback_name: &str,) -> Result<(), Error> {
         printinfo!("Attempting to register callback '{}' for ''",callback_name);
         if self.callbacks.contains_key(callback_name) {
             return throw!(Error::CallbackAlreadyExists(callback_name.to_string()))
         }
-        self.callbacks.insert(callback_name.to_string(), callback);
+        self.callbacks.insert(callback_name.to_string(), Callback { name: "test".to_string(), event: "newevent".to_string() });
         printinfo!("Callback '{}' succsessfully registered",callback_name);
         Ok(())
     }
@@ -119,7 +119,7 @@ pub fn get_class(class_name: &str) -> Result<Arc<RwLock<Class>>, Error> {
 //             .map(|(name, _)| name.clone())
 //     )
 //     .unwrap_or_else(|| String::from("None"));
-//     printinfo!("{:#?}", classes)
+//     sprintinfo!("{:#?}", classes)
 // }
 
 
@@ -152,9 +152,13 @@ pub fn test() -> Result<Error, Error> {
 #[derive(Debug, Clone)]
 pub struct Callback {
     name: String,
-    event: fn(&(dyn Any + Send + Sync)) -> Option<Box<dyn Any + Send + Sync>>
+    //event: fn(&(dyn Any + Send + Sync)) -> Option<Box<dyn Any + Send + Sync>>
+    event: String //temporary
 }
-
+impl  Callback {
+    pub fn bind_event(&mut self) {}
+    
+}
 
 pub fn print_debug() {
     let db_read = CLASS_DB.read();
