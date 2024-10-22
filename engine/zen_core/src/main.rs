@@ -1,4 +1,4 @@
-use std::{ops::Deref, time::Instant};
+use std::{any::Any, ops::Deref, time::Instant};
 
 use class_db::*;
 
@@ -11,10 +11,7 @@ fn main() {
         Ok(_) => printinfo!("it work"),
         Err(_) => printerr!("it didnt"),
     }
-
-    let mut test = get_class("newclass").unwrap();
-    test.register_callback();
-    print_debug();
-
+    let new = get_class("newclass").unwrap().write().register_callback("testsdf",todo!());
     
+    print_debug();
 }

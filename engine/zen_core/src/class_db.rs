@@ -1,22 +1,20 @@
-use core::sync;
 use std::{any::{self, Any}, fmt, sync::{Arc, LazyLock}};
 use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
 
 use crate::{printinfo, printwarn, throw};
+
 #[derive(Debug)]
-pub struct ClassDB<'a> {
-    classes: HashMap<String,RwLock<Arc<Class<'a>>>>, // dear god help
+pub struct ClassDB {
+    classes: HashMap<String, Arc<RwLock<Class>>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Class<'a> {
-    pub parent: Option<&'a Class<'static>>,
-    //pub methods: HashMap<String, fn(&[Value]) -> Value>,
-    pub callbacks: HashMap<String,Callback>,
-    pub properties: HashMap<String,Value>
+pub struct Class {
+    pub parent: Option<Arc<RwLock<Class>>>,
+    pub callbacks: HashMap<String, Callback>,
+    pub properties: HashMap<String, Value>
 }
-
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -30,28 +28,35 @@ pub enum Value {
     Void,
 }
 
-impl Class<'static> {
+impl Class {
     pub fn print_data(&self) {
         printinfo!("Printing data for thing")
     }
-    // pub fn bind_method(&mut self, method_name: &str, method: fn(Value) -> Value) {
-    //     printinfo!("Binding method '{}'",method_name)
-    // }
-    pub fn register_callback(&mut self) {}
+    pub fn register_callback(&mut self,callback_name: &str,callback: Callback) -> Result<(), Error> {
+        printinfo!("Attempting to register callback '{}' for ''",callback_name);
+        if self.callbacks.contains_key(callback_name) {
+            return throw!(Error::CallbackAlreadyExists(callback_name.to_string()))
+        }
+        self.callbacks.insert(callback_name.to_string(), callback);
+        printinfo!("Callback '{}' succsessfully registered",callback_name);
+        Ok(())
+    }
     pub fn add_property(&mut self) {}
 }
 
-type ZClass<'a> = Class<'static>;
 pub static CLASS_DB: LazyLock<RwLock<ClassDB>> = LazyLock::new(|| {
     let mut db = ClassDB {
         classes: HashMap::new()
     };
 
-    db.classes.insert(String::from("Zobject",), RwLock::new(Arc::new(Class {
-        parent: None,
-        callbacks: HashMap::new(),
-        properties: HashMap::new() 
-    })));
+    db.classes.insert(
+        String::from("Zobject"),
+        Arc::new(RwLock::new(Class {
+            parent: None,
+            callbacks: HashMap::new(),
+            properties: HashMap::new() 
+        }))
+    );
     RwLock::new(db)
 });
 
@@ -61,62 +66,81 @@ pub fn register_class(class_name: &str, parent: Option<&str>) -> Result<(), Erro
         printwarn!("You cannot override the base class. Try choosing a different name");
         return throw!(Error::CannotOverrideBaseclass(String::from("Zobject")));
     }
-    let mut find_parent: bool = false;
-    if parent.is_some() { find_parent = true}
-    for class in CLASS_DB.read().classes.keys() {
-        if class == class_name {
-            printwarn!("A class with the same name was registered previously. Did you mean to override it?");
-            return throw!(Error::ClassAlreadyExists(class_name.to_string()));
-        }
+
+    let db_read = CLASS_DB.read();
+    if db_read.classes.contains_key(class_name) {
+        printwarn!("A class with the same name was registered previously. Did you mean to override it?");
+        return throw!(Error::ClassAlreadyExists(class_name.to_string()));
     }
-    if find_parent {
-        for class in &CLASS_DB.read().classes {
-            if Some(class.0.as_str()) == parent  {
-                printinfo!("thing");
-            }
+
+    let parent_class = if let Some(parent_name) = parent {
+        if let Some(parent) = db_read.classes.get(parent_name) {
+            Some(Arc::clone(parent))
+        } else {
+            return throw!(Error::ParentClassNotFound(parent_name.to_string()));
         }
-    }
-    drop(CLASS_DB.read());
+    } else {
+        None
+    };
+
+    drop(db_read);
 
     let new_class = Class {
-        parent: None,
+        parent: parent_class,
         callbacks: HashMap::new(),
         properties: HashMap::new(),
     };
+    
+    let new_class_arc = Arc::new(RwLock::new(new_class));
+
     printinfo!("Attempting to unlock classDB for write access");
-    CLASS_DB.write().classes.insert(String::from(class_name),RwLock::new(Arc::new(new_class)));
-    printinfo!("Registered class '{:#?} to ClassDB'", class_name);
+    CLASS_DB.write().classes.insert(String::from(class_name), new_class_arc);
+    printinfo!("Registered class '{:#?}' to ClassDB", class_name);
     Ok(())
 }
 
-pub fn get_class(class_name: &str,) -> Result<Arc<Class>, Error> {
+pub fn get_class(class_name: &str) -> Result<Arc<RwLock<Class>>, Error> {
     printinfo!("Attempting to locate class '{}'", class_name);
-    if let Some(found_class) = CLASS_DB.read().classes.get(class_name){
+    if let Some(found_class) = CLASS_DB.read().classes.get(class_name) {
         printinfo!("Class found");
-        Ok(Arc::clone(&found_class.read()))
+        Ok(Arc::clone(found_class))
     } else {
-        printwarn!("Class wasnt found. Is it registered?");
-        return throw!(Error::ClassNotFound(class_name.to_string()));
+        printwarn!("Class wasn't found. Is it registered?");
+        throw!(Error::ClassNotFound(class_name.to_string()))
     }
 }
-pub fn print_debug() {
-    let classes = &CLASS_DB.read().classes;
-    printinfo!("{:#?}", classes)
-}
+
+// pub fn print_debug() {
+//     let classes = &CLASS_DB.read().classes;
+//     let parent_name = classes.iter().d.parent.as_ref()
+//     .and_then(|parent| 
+//         classes.iter()
+//             .find(|(_, c)| Arc::ptr_eq(c, parent))
+//             .map(|(name, _)| name.clone())
+//     )
+//     .unwrap_or_else(|| String::from("None"));
+//     printinfo!("{:#?}", classes)
+// }
+
+
+
 #[derive(Debug)]
 pub enum Error {
     ClassAlreadyExists(String),
     ClassNotFound(String),
     CannotOverrideBaseclass(String),
+    ParentClassNotFound(String),
+    CallbackAlreadyExists(String)
 }
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::ClassAlreadyExists(name) => write!(f, "Class already exists: {}", name),
-            Error::CannotOverrideBaseclass(name) => {
-                write!(f, "Cannot override baseclass: {}", name)
-            }
-            Error::ClassNotFound(name) => write!(f,"Cannot find class '{}' within ClassDB",name)
+            Error::CannotOverrideBaseclass(name) => write!(f, "Cannot override baseclass: {}", name),
+            Error::ClassNotFound(name) => write!(f, "Cannot find class '{}' within ClassDB", name),
+            Error::ParentClassNotFound(name) => write!(f, "Parent class '{}' not found", name),
+            Error::CallbackAlreadyExists(name) => write!(f,"Callback with the same name '{}' was previously registered",name)
         }
     }
 }
@@ -124,10 +148,92 @@ impl fmt::Display for Error {
 pub fn test() -> Result<Error, Error> {
     return throw!(Error::CannotOverrideBaseclass(String::from("Zobject")));
 }
+
 #[derive(Debug, Clone)]
-struct Callback {
+pub struct Callback {
     name: String,
     event: fn(&(dyn Any + Send + Sync)) -> Option<Box<dyn Any + Send + Sync>>
+}
 
 
+pub fn print_debug() {
+    let db_read = CLASS_DB.read();
+    println!("└─ClassDB Contents:");
+    for (idx, (name, class_arc)) in db_read.classes.iter().enumerate() {
+        let is_last_class = idx == db_read.classes.len() - 1;
+        let class = class_arc.read();
+        let parent_name = class.parent.as_ref()
+            .and_then(|parent|
+                db_read.classes.iter()
+                    .find(|(_, c)| Arc::ptr_eq(c, parent))
+                    .map(|(name, _)| name.as_str())
+            )
+            .unwrap_or("None");
+            
+        if is_last_class {
+            println!("  └─Class: {}", name);
+            println!("    ├─Parent {}", parent_name);
+            println!("    ├─Properties");
+        } else {
+            println!("  ├─Class: {}", name);
+            println!("  │ ├─Parent {}", parent_name);
+            println!("  │ ├─Properties");
+        }
+
+        if class.properties.is_empty() {
+            if is_last_class {
+                println!("    │ └─None");
+            } else {
+                println!("  │ │ └─None");
+            }
+        } else {
+            for (prop_idx, (prop_name, value)) in class.properties.iter().enumerate() {
+                let is_last_prop = prop_idx == class.properties.len() - 1;
+                if is_last_class {
+                    if is_last_prop {
+                        println!("    │ └─{}: {:?}", prop_name, value);
+                    } else {
+                        println!("    │ ├─{}: {:?}", prop_name, value);
+                    }
+                } else {
+                    if is_last_prop {
+                        println!("  │ │ └─{}: {:?}", prop_name, value);
+                    } else {
+                        println!("  │ │ ├─{}: {:?}", prop_name, value);
+                    }
+                }
+            }
+        }
+        
+        if is_last_class {
+            println!("    └─Callbacks");
+        } else {
+            println!("  │ └─Callbacks");
+        }
+
+        if class.callbacks.is_empty() {
+            if is_last_class {
+                println!("      └─None");
+            } else {
+                println!("  │   └─None");
+            }
+        } else {
+            for (cb_idx, (callback_name, callback)) in class.callbacks.iter().enumerate() {
+                let is_last_cb = cb_idx == class.callbacks.len() - 1;
+                if is_last_class {
+                    if is_last_cb {
+                        println!("      └─{}: {}", callback_name, callback.name);
+                    } else {
+                        println!("      ├─{}: {}", callback_name, callback.name);
+                    }
+                } else {
+                    if is_last_cb {
+                        println!("  │   └─{}: {}", callback_name, callback.name);
+                    } else {
+                        println!("  │   ├─{}: {}", callback_name, callback.name);
+                    }
+                }
+            }
+        }
+    }
 }
